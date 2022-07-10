@@ -50,8 +50,7 @@ namespace ExpressionTrees.Task1.ExpressionsTransformer
         {
             Console.WriteLine($"Before transformation: {expression}");
             var transformedExpression = new IncDecExpressionVisitor().Transform(expression, replacements);
-            Console.WriteLine(
-                $"After transformation: {transformedExpression}");
+            Console.WriteLine($"After transformation: {transformedExpression}");
             Console.WriteLine();
         }
     }
