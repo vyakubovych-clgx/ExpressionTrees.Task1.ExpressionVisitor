@@ -1,20 +1,88 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Linq.Expressions;
+using System.Reflection;
 
 namespace ExpressionTrees.Task2.ExpressionMapping
 {
-    public class MappingGenerator
+    public class MappingGenerator<TSource, TDestination>
     {
-        public Mapper<TSource, TDestination> Generate<TSource, TDestination>()
-        {
-            var sourceParam = Expression.Parameter(typeof(TSource));
-            var mapFunction =
-                Expression.Lambda<Func<TSource, TDestination>>(
-                    Expression.New(typeof(TDestination)),
-                    sourceParam
-                );
+        private readonly Dictionary<string, LambdaExpression> _mappings =
+            new Dictionary<string, LambdaExpression>();
 
-            return new Mapper<TSource, TDestination>(mapFunction.Compile());
+        public MappingGenerator<TSource, TDestination> MapMember<T>(
+            Expression<Func<TDestination, T>> destinationFieldExpression,
+            Expression<Func<TSource, T>> sourceMappingExpression)
+        {
+            _mappings.Add(((MemberExpression) destinationFieldExpression.Body).Member.Name, sourceMappingExpression);
+            return this;
         }
+
+        public Mapper<TSource, TDestination> Generate()
+            => new Mapper<TSource, TDestination>(GetMapFunction().Compile());
+
+        private Expression<Func<TSource, TDestination>> GetMapFunction()
+        {
+            var parameter = Expression.Parameter(typeof(TSource), "source");
+
+            var sourceInstance = Expression.Variable(typeof(TSource), "sourceInstance");
+            var destinationInstance = Expression.Variable(typeof(TDestination), "destinationInstance");
+
+            var destinationConstructor = GetDestinationConstructor();
+
+            var expressions = new List<Expression>
+            {
+                Expression.Assign(sourceInstance, Expression.Convert(parameter, typeof(TSource))),
+                Expression.Assign(destinationInstance, Expression.New(destinationConstructor))
+            };
+
+            var sourceMembers = GetPublicFieldsAndProperties(typeof(TSource));
+            var destinationMembers = GetPublicFieldsAndProperties(typeof(TDestination));
+
+            expressions.AddRange(from destinationMember in destinationMembers
+                let sourceValue = GetSourceValueExpression(destinationMember, sourceInstance, sourceMembers)
+                where sourceValue != null
+                let destinationValue = GetMemberExpression(destinationInstance, destinationMember)
+                select Expression.Assign(destinationValue, sourceValue));
+
+            expressions.Add(destinationInstance);
+
+            var body = Expression.Block(new[] {sourceInstance, destinationInstance}, expressions);
+            return Expression.Lambda<Func<TSource, TDestination>>(body, parameter);
+        }
+
+        private Expression GetSourceValueExpression(MemberInfo destinationMember, ParameterExpression sourceInstance,
+            IEnumerable<MemberInfo> sourceMembers)
+        {
+            Expression sourceValue = null;
+
+            if (_mappings.ContainsKey(destinationMember.Name))
+                sourceValue = Expression.Invoke(_mappings[destinationMember.Name], sourceInstance);
+            else
+            {
+                var sourceMember = sourceMembers.FirstOrDefault(sp => destinationMember.Name == sp.Name);
+                if (sourceMember != null)
+                    sourceValue = GetMemberExpression(sourceInstance, sourceMember);
+            }
+
+            return sourceValue;
+        }
+
+        private static ConstructorInfo GetDestinationConstructor()
+            => typeof(TDestination).GetTypeInfo().DeclaredConstructors
+                .First(c => !c.IsStatic && c.GetParameters().Length == 0);
+
+        private static IEnumerable<MemberInfo> GetPublicFieldsAndProperties(Type type)
+        {
+            const BindingFlags bindingFlags = BindingFlags.Public | BindingFlags.Instance;
+            return type.GetFields(bindingFlags).Cast<MemberInfo>()
+                .Concat(type.GetProperties(bindingFlags)).ToArray();
+        }
+
+        private static Expression GetMemberExpression(ParameterExpression instance, MemberInfo member)
+            => member is PropertyInfo propertyInfo
+                ? Expression.Property(instance, propertyInfo)
+                : Expression.Field(instance, (FieldInfo)member);
     }
 }
