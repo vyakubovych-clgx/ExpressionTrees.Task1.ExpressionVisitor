@@ -24,16 +24,14 @@ namespace ExpressionTrees.Task2.ExpressionMapping
 
         private Expression<Func<TSource, TDestination>> GetMapFunction()
         {
-            var parameter = Expression.Parameter(typeof(TSource), "source");
-
-            var sourceInstance = Expression.Variable(typeof(TSource), "sourceInstance");
+            var sourceInstance = Expression.Parameter(typeof(TSource), "sourceInstance");
             var destinationInstance = Expression.Variable(typeof(TDestination), "destinationInstance");
 
             var destinationConstructor = GetDestinationConstructor();
 
             var expressions = new List<Expression>
             {
-                Expression.Assign(sourceInstance, Expression.Convert(parameter, typeof(TSource))),
+                sourceInstance,
                 Expression.Assign(destinationInstance, Expression.New(destinationConstructor))
             };
 
@@ -48,8 +46,8 @@ namespace ExpressionTrees.Task2.ExpressionMapping
 
             expressions.Add(destinationInstance);
 
-            var body = Expression.Block(new[] {sourceInstance, destinationInstance}, expressions);
-            return Expression.Lambda<Func<TSource, TDestination>>(body, parameter);
+            var body = Expression.Block(new[] {destinationInstance}, expressions);
+            return Expression.Lambda<Func<TSource, TDestination>>(body, sourceInstance);
         }
 
         private Expression GetSourceValueExpression(MemberInfo destinationMember, ParameterExpression sourceInstance,
