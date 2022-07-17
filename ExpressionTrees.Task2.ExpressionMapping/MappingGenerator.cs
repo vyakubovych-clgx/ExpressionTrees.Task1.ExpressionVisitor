@@ -12,10 +12,10 @@ namespace ExpressionTrees.Task2.ExpressionMapping
             new Dictionary<string, LambdaExpression>();
 
         public MappingGenerator<TSource, TDestination> MapMember<T>(
-            Expression<Func<TDestination, T>> destinationFieldExpression,
+            Expression<Func<TDestination, T>> destinationMemberExpression,
             Expression<Func<TSource, T>> sourceMappingExpression)
         {
-            _mappings.Add(((MemberExpression) destinationFieldExpression.Body).Member.Name, sourceMappingExpression);
+            _mappings.Add(((MemberExpression) destinationMemberExpression.Body).Member.Name, sourceMappingExpression);
             return this;
         }
 
