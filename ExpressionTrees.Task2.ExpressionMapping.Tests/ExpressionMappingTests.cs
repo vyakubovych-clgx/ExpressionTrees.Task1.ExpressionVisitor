@@ -66,11 +66,7 @@ namespace ExpressionTrees.Task2.ExpressionMapping.Tests
                 .MapMember(b => b.FullName, f => $"{f.FirstName} {f.LastName}")
                 .Generate();
 
-            var res = mapper.Map(new Foo
-            {
-                FirstName = "Viktor",
-                LastName = "Yakubovych"
-            });
+            var res = mapper.Map(_foo);
 
             Assert.AreEqual("Viktor Yakubovych", res.FullName);
         }
@@ -86,6 +82,34 @@ namespace ExpressionTrees.Task2.ExpressionMapping.Tests
             var res = mapper.Map(_foo);
 
             Assert.AreEqual(true, res.IsAdult);
+        }
+
+        [TestMethod]
+        public void Mapper_ShouldSupportMultipleCustomRules()
+        {
+            var mapGenerator = new MappingGenerator<Foo, Bar>();
+            var mapper = mapGenerator
+                .MapMember(b => b.FullName, f => $"{f.FirstName} {f.LastName}")
+                .MapMember(b => b.IsAdult, f => f.Age >= 18)
+                .Generate();
+
+            var res = mapper.Map(_foo);
+
+            Assert.AreEqual("Viktor Yakubovych", res.FullName);
+            Assert.AreEqual(true, res.IsAdult);
+        }
+
+        [TestMethod]
+        public void Mapper_ShouldUseCustomRuleInsteadOfExistingSourceMemberWithTheSameName()
+        {
+            var mapGenerator = new MappingGenerator<Foo, Bar>();
+            var mapper = mapGenerator
+                .MapMember(b => b.FirstName, f => $"{f.FirstName[0]}.")
+                .Generate();
+
+            var res = mapper.Map(_foo);
+
+            Assert.AreEqual("V.", res.FirstName);
         }
     }
 }
